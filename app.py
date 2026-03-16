@@ -7,7 +7,6 @@ import cv2
 from ultralytics import YOLO
 import supervision as sv
 from supervision.annotators.core import BoxAnnotator
-import pyresearch
 
 
 TILE_SIZE = (1280, 720)
@@ -318,4 +317,5 @@ if __name__ == "__main__":
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
