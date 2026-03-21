@@ -1,5 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 flask
 opencv-python
+# Use lightweight CPU-only PyTorch on Render to avoid huge CUDA deps
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
 ultralytics
 supervision
 gunicorn
