@@ -24,13 +24,23 @@ model = YOLO("last.pt")
 # ==============================
 # Configuration
 # ==============================
-UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "static/outputs"
+# Allow overriding folders via environment (useful on Render / cloud)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+DEFAULT_UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+DEFAULT_OUTPUT_FOLDER = os.path.join(BASE_DIR, "static", "outputs")
+
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", DEFAULT_UPLOAD_FOLDER)
+OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", DEFAULT_OUTPUT_FOLDER)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "mp4", "avi", "mov"}
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["OUTPUT_FOLDER"] = OUTPUT_FOLDER
+
+# Ensure folders exist even when running under gunicorn (Render)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
 # ==============================
@@ -263,45 +273,51 @@ def upload_files():
         for file in files:
 
             if file and allowed_file(file.filename):
+                try:
+                    filepath = os.path.join(
+                        app.config["UPLOAD_FOLDER"],
+                        file.filename,
+                    )
 
-                filepath = os.path.join(
-                    app.config["UPLOAD_FOLDER"],
-                    file.filename,
-                )
+                    # Ensure the upload directory exists before saving
+                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-                file.save(filepath)
+                    file.save(filepath)
 
-                extension = file.filename.rsplit(".", 1)[1].lower()
+                    extension = file.filename.rsplit(".", 1)[1].lower()
 
-                output_filename = "annotated_" + file.filename
+                    output_filename = "annotated_" + file.filename
 
-                output_path = os.path.join(
-                    app.config["OUTPUT_FOLDER"],
-                    output_filename,
-                )
+                    output_path = os.path.join(
+                        app.config["OUTPUT_FOLDER"],
+                        output_filename,
+                    )
 
-                item: dict = {
-                    "url": url_for(
-                        "static",
-                        filename=f"outputs/{output_filename}",
-                    ),
-                    "is_video": extension in {"mp4", "avi", "mov"},
-                    "diseases": [],
-                    "insights": [],
-                }
+                    item: dict = {
+                        "url": url_for(
+                            "static",
+                            filename=f"outputs/{output_filename}",
+                        ),
+                        "is_video": extension in {"mp4", "avi", "mov"},
+                        "diseases": [],
+                        "insights": [],
+                    }
 
-                if extension in {"png", "jpg", "jpeg"}:
+                    if extension in {"png", "jpg", "jpeg"}:
 
-                    # Get summarized predictions for this image
-                    image_summary = process_image(filepath, output_path)
-                    item["diseases"] = image_summary
-                    item["insights"] = build_clinical_insights(image_summary)
+                        # Get summarized predictions for this image
+                        image_summary = process_image(filepath, output_path)
+                        item["diseases"] = image_summary
+                        item["insights"] = build_clinical_insights(image_summary)
 
-                elif extension in {"mp4", "avi", "mov"}:
+                    elif extension in {"mp4", "avi", "mov"}:
 
-                    process_video(filepath, output_path)
+                        process_video(filepath, output_path)
 
-                processed_items.append(item)
+                    processed_items.append(item)
+
+                except Exception as exc:  # log and continue instead of crashing
+                    print(f"Error processing file {file.filename}: {exc}", flush=True)
 
     return render_template(
         "index.html",
@@ -313,8 +329,5 @@ def upload_files():
 # Run App
 # ==============================
 if __name__ == "__main__":
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
     port = int(os.environ.get("PORT", 5000)) 
     app.run(host="0.0.0.0", port=port, debug=False)
