@@ -9,7 +9,7 @@ import supervision as sv
 from supervision.annotators.core import BoxAnnotator
 
 
-TILE_SIZE = (1280, 720)
+TILE_SIZE = (640,640)
 
 
 # ==============================
