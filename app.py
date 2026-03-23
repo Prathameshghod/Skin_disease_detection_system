@@ -19,7 +19,8 @@ app = Flask(__name__)
 
 # Load YOLO model
 model = YOLO("last.pt")
-
+model.to("cpu")           # force CPU
+model.model.fuse = False  # disable fusion (saves memory)
 
 # ==============================
 # Configuration
@@ -33,7 +34,7 @@ DEFAULT_OUTPUT_FOLDER = os.path.join(BASE_DIR, "static", "outputs")
 UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", DEFAULT_UPLOAD_FOLDER)
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", DEFAULT_OUTPUT_FOLDER)
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "mp4", "avi", "mov"}
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["OUTPUT_FOLDER"] = OUTPUT_FOLDER
@@ -141,7 +142,7 @@ def process_image(input_image_path, output_image_path):
     resized = cv2.resize(image, TILE_SIZE)
 
     # YOLO detection
-    results = model(resized)[0]
+    results = model(resized, device="cpu", verbose=False)[0]
 
     detections = sv.Detections.from_ultralytics(results)
 
@@ -218,7 +219,7 @@ def process_video(input_video_path, output_video_path):
 
         resized = cv2.resize(frame, TILE_SIZE)
 
-        results = model(resized)[0]
+        results = model(resized, device="cpu", verbose=False)[0]
 
         detections = sv.Detections.from_ultralytics(results)
 
